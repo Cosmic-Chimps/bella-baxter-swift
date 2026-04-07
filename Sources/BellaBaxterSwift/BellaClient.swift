@@ -177,7 +177,15 @@ public final class BellaClient: @unchecked Sendable {
         self.urlSession = session
         let transport = URLSessionTransport(configuration: .init(session: session))
         let auth  = try HmacAuthMiddleware(apiKey: options.apiKey)
-        let e2ee  = E2EEncryptionMiddleware()
+        let e2ee: E2EEncryptionMiddleware
+        if let key = options.privateKey {
+            e2ee = E2EEncryptionMiddleware(
+                privateKey: key,
+                onWrappedDekReceived: options.onWrappedDekReceived
+            )
+        } else {
+            e2ee = E2EEncryptionMiddleware()
+        }
         self.hmacMiddleware = auth
         self.generated = Client(
             serverURL: options.baseURL,
@@ -282,6 +290,11 @@ public final class BellaClient: @unchecked Sendable {
         projectRef: String? = nil,
         environmentSlug: String? = nil
     ) async throws -> [String: String] {
+        // Return from cache if available.
+        if let cached = try await options.cache?.read() {
+            return cached
+        }
+
         let ctx = try await getKeyContext()
         let resolvedProject = projectRef ?? ctx.projectSlug
         let resolvedEnv = environmentSlug ?? ctx.environmentSlug
@@ -293,7 +306,9 @@ public final class BellaClient: @unchecked Sendable {
         case .ok(let ok):
             switch ok.body {
             case .json(let body):
-                return body.secrets.additionalProperties
+                let secrets = body.secrets.additionalProperties
+                try await options.cache?.write(secrets)
+                return secrets
             }
         case .notFound:
             throw BellaError.notFound("environment '\(resolvedProject)/\(resolvedEnv)'")
@@ -339,5 +354,41 @@ public final class BellaClient: @unchecked Sendable {
                 setenv(key, value, 0)
             }
         }
+    }
+
+    // MARK: - ZKE Key Loading
+
+    /// Loads a P-256 private key from PKCS#8 DER bytes.
+    ///
+    /// Use this to create the `privateKey` option for ZKE mode, e.g. when reading from the
+    /// iOS Keychain or from a DER file produced by `openssl genpkey`.
+    ///
+    /// ```swift
+    /// let key = try BellaClient.loadPrivateKey(pkcs8Der: derData)
+    /// let options = BellaClientOptions(apiKey: "bax-...", privateKey: key)
+    /// ```
+    public static func loadPrivateKey(pkcs8Der: Data) throws -> P256.KeyAgreement.PrivateKey {
+        return try P256.KeyAgreement.PrivateKey(derRepresentation: pkcs8Der)
+    }
+
+    /// Loads a P-256 private key from a PKCS#8 PEM string.
+    ///
+    /// ```swift
+    /// let pem = """
+    /// -----BEGIN PRIVATE KEY-----
+    /// MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg...
+    /// -----END PRIVATE KEY-----
+    /// """
+    /// let key = try BellaClient.loadPrivateKey(pkcs8Pem: pem)
+    /// ```
+    public static func loadPrivateKey(pkcs8Pem: String) throws -> P256.KeyAgreement.PrivateKey {
+        let b64 = pkcs8Pem
+            .components(separatedBy: "\n")
+            .filter { !$0.hasPrefix("-----") && !$0.isEmpty }
+            .joined()
+        guard let der = Data(base64Encoded: b64) else {
+            throw BellaError.invalidKey("Could not decode PEM base64")
+        }
+        return try P256.KeyAgreement.PrivateKey(derRepresentation: der)
     }
 }

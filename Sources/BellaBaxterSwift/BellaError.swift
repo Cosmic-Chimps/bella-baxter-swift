@@ -6,6 +6,7 @@ public enum BellaError: Error, LocalizedError, Sendable {
     case notFound(String)
     case serverError(Int, String)
     case unexpectedResponse(String)
+    case invalidKey(String)
 
     public var errorDescription: String? {
         switch self {
@@ -17,6 +18,8 @@ public enum BellaError: Error, LocalizedError, Sendable {
             return "Server error \(code): \(message)"
         case .unexpectedResponse(let detail):
             return "Unexpected response: \(detail)"
+        case .invalidKey(let detail):
+            return "Invalid key: \(detail)"
         }
     }
 }
