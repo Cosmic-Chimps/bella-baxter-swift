@@ -55,9 +55,12 @@ final class ProjectsViewModel: ObservableObject {
         defer { isLoading = false }
         do {
             let apiProjects = try await client.listProjects()
-            projects = apiProjects.compactMap { p in
-                guard let id = p.id, let name = p.name, let slug = p.slug else { return nil }
-                return Project(id: id, name: name, slug: slug, description: p.description)
+            // #733: `id`, `name` and `slug` are REQUIRED on ProjectResponse, so the generator
+            // emits them as `Swift.String` rather than `String?`. The `guard let … else { return
+            // nil }` this replaces stopped compiling when that became true, and nothing built the
+            // sample to notice.
+            projects = apiProjects.map { p in
+                Project(id: p.id, name: p.name, slug: p.slug, description: p.description)
             }
         } catch {
             errorMessage = error.localizedDescription

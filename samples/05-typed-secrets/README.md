@@ -27,7 +27,7 @@ Application code uses typed properties — no raw string parsing
 
 ```bash
 # Authenticate
-bella login --api-key bax-xxxxxxxxxxxxxxxxxxxx
+bella login
 
 export BELLA_BAXTER_URL=http://localhost:5522   # your Bella Baxter instance
 

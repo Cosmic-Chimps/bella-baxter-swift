@@ -18,7 +18,7 @@ These samples demonstrate five ways to use the Bella Baxter Swift SDK (`BellaBax
 Log in once before running samples:
 
 ```bash
-bella login --api-key bax-your-api-key --url https://your-instance.example.com
+bella login --url https://your-instance.example.com
 ```
 
 ---
