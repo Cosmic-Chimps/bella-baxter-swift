@@ -15,6 +15,21 @@ Swift client for the Bella Baxter secrets management API, powered by
 
 ---
 
+## Requirements
+
+- **Swift 6.2 or later — Xcode 26 or later.** Swift 6.1 and earlier (Xcode 16.x) cannot build the
+  SDK: SwiftPM resolves its dependencies fresh for your app, and the current `swift-collections`
+  (pulled in by `swift-openapi-generator` and `swift-openapi-urlsession`) ships only a
+  `swift-tools-version: 6.2` manifest. `Package.swift` declares 6.2 so SwiftPM says so up front.
+  The SDK still compiles in the Swift 5 language mode, so it adds no Swift 6 concurrency
+  requirements to your code.
+- iOS 17+, macOS 14+, watchOS 10+, tvOS 17+.
+
+On a GitHub-hosted `macos-15` runner the default Xcode is 16.4 (Swift 6.1), so select a newer one
+first: `sudo xcode-select -s /Applications/Xcode_26.3.app`.
+
+---
+
 ## Installation
 
 ### Xcode (recommended for iOS)

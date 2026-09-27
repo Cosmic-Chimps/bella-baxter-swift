@@ -166,10 +166,19 @@ public final class BellaClient: @unchecked Sendable {
 
     // MARK: Init
 
-    public init(_ options: BellaClientOptions) throws {
+    public convenience init(_ options: BellaClientOptions) throws {
+        try self.init(options, sessionConfiguration: .default)
+    }
+
+    /// Test seam: the same client over a caller-supplied session configuration, so a test can
+    /// install a `URLProtocol` and drive the real middleware + generated decoder end to end.
+    init(_ options: BellaClientOptions, sessionConfiguration: URLSessionConfiguration) throws {
+        // #989 — a BELLA_BAXTER_PRIVATE_KEY that is present but unreadable stops here, loudly.
+        // Checked in the designated init so the public convenience init and the test seam both refuse it.
+        if let keyError = options.privateKeyError { throw keyError }
         self.options = options
         let session = URLSession(configuration: {
-            let cfg = URLSessionConfiguration.default
+            let cfg = sessionConfiguration
             cfg.timeoutIntervalForRequest = options.timeoutSeconds
             cfg.timeoutIntervalForResource = options.timeoutSeconds * 3
             return cfg
@@ -189,6 +198,8 @@ public final class BellaClient: @unchecked Sendable {
         self.hmacMiddleware = auth
         self.generated = Client(
             serverURL: options.baseURL,
+            // #993 — the runtime default rejects the fractional seconds the API sends.
+            configuration: .bella,
             transport: transport,
             middlewares: [auth, e2ee]
         )
@@ -373,6 +384,10 @@ public final class BellaClient: @unchecked Sendable {
 
     /// Loads a P-256 private key from a PKCS#8 PEM string.
     ///
+    /// Also accepts bare base64 PKCS#8 DER: the `-----…-----` armour and all whitespace
+    /// (including CRLF line endings) are stripped before decoding — the same rule the JS, Java
+    /// and .NET SDKs apply to `BELLA_BAXTER_PRIVATE_KEY`.
+    ///
     /// ```swift
     /// let pem = """
     /// -----BEGIN PRIVATE KEY-----
@@ -383,9 +398,11 @@ public final class BellaClient: @unchecked Sendable {
     /// ```
     public static func loadPrivateKey(pkcs8Pem: String) throws -> P256.KeyAgreement.PrivateKey {
         let b64 = pkcs8Pem
-            .components(separatedBy: "\n")
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.hasPrefix("-----") && !$0.isEmpty }
             .joined()
+            .filter { !$0.isWhitespace }
         guard let der = Data(base64Encoded: b64) else {
             throw BellaError.invalidKey("Could not decode PEM base64")
         }

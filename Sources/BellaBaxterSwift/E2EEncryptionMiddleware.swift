@@ -97,8 +97,10 @@ struct E2EEncryptionMiddleware: ClientMiddleware {
         if let onWrappedDek = onWrappedDekReceived,
            let wrappedDek = response.headerFields[HTTPField.Name("X-Bella-Wrapped-Dek")!] {
             let leaseExpiresStr = response.headerFields[HTTPField.Name("X-Bella-Lease-Expires")!]
+            // The API writes this with DateTimeOffset.ToString("O") — seven fractional digits —
+            // which a default ISO8601DateFormatter rejects, so the lease always arrived as nil (#993).
             let leaseExpires: Date? = leaseExpiresStr.flatMap {
-                ISO8601DateFormatter().date(from: $0)
+                try? BellaDateTranscoder().decode($0)
             }
             let pathComponents = request.path?.split(separator: "/").map(String.init) ?? []
             let projectSlug = extractSlug(from: pathComponents, after: "projects")

@@ -1,4 +1,16 @@
-// swift-tools-version: 5.10
+// swift-tools-version: 6.2
+//
+// Swift 6.2 (Xcode 26+) is the real floor, and this line states it (#993). A library's
+// Package.resolved is never used by its consumers, so a consumer resolves the dependency graph
+// fresh — and that pulls swift-collections 1.7.x (via swift-openapi-generator AND
+// swift-openapi-urlsession, neither of which caps it), whose only manifest is tools 6.2. The old
+// `5.10` here promised a floor the graph could not meet: on Swift 6.1 resolution failed inside
+// swift-collections before any SDK code compiled. Declaring 6.2 turns that into SwiftPM's own
+// clear "requires a minimum Swift tools version of 6.2" message.
+//
+// Capping swift-collections below 1.7 (so 6.0/6.1 could build) was rejected: no direct
+// dependency's requirement can be edited, so it would need an otherwise unused direct dependency
+// whose ceiling every consumer inherits and conflicts with, and it could not be proven here.
 import PackageDescription
 
 let package = Package(
@@ -46,5 +58,13 @@ let package = Package(
                 .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator"),
             ]
         ),
-    ]
+        .testTarget(
+            name: "BellaBaxterSwiftTests",
+            dependencies: ["BellaBaxterSwift"]
+        ),
+    ],
+    // Tools 6.x defaults to the Swift 6 language mode. Raising the tools version (above) is a
+    // statement about the toolchain, not a request to change how this module compiles, so the
+    // language mode stays what `5.10` gave it.
+    swiftLanguageModes: [.v5]
 )

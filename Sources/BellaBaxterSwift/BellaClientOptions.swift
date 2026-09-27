@@ -47,6 +47,11 @@ public struct BellaClientOptions: Sendable {
     /// Use this to persist the wrapped DEK for offline / cold-start secret retrieval.
     public let onWrappedDekReceived: (@Sendable (String, String, String, Date?) -> Void)?
 
+    /// Set when `BELLA_BAXTER_PRIVATE_KEY` is present but unreadable. ``BellaClient/init(_:)``
+    /// throws it: the options initializer cannot throw without breaking every caller, and
+    /// continuing with an ephemeral key is exactly the silent failure #989 removed.
+    let privateKeyError: BellaError?
+
     public init(
         baseURL: URL = BellaClientOptions.defaultBaseURL,
         apiKey: String,
@@ -60,17 +65,43 @@ public struct BellaClientOptions: Sendable {
         self.timeoutSeconds = timeoutSeconds
         self.cache = cache
         // Auto-read BELLA_BAXTER_PRIVATE_KEY env var if no key was passed explicitly.
-        // On macOS / Linux CLI tools this var is injected by `bella sdk run`.
+        // On macOS / Linux CLI tools this var is injected by `bella sdk run`, as PKCS#8 PEM.
         // On iOS / tvOS ProcessInfo.processInfo.environment is always empty — safe to check.
+        //
+        // #989 — this used to accept ONLY bare base64 DER and `try?` everything else away, so the
+        // PEM `bella sdk run` injects was silently dropped and the client presented an ephemeral key
+        // nobody had registered. Now PEM and base64 both load (one parser:
+        // `BellaClient.loadPrivateKey(pkcs8Pem:)`), and a key that is present but unreadable is
+        // recorded and thrown by `BellaClient.init` — never replaced by an ephemeral key.
         if let key = privateKey {
             self.privateKey = key
-        } else if let b64 = ProcessInfo.processInfo.environment["BELLA_BAXTER_PRIVATE_KEY"],
-                  let der = Data(base64Encoded: b64),
-                  let loaded = try? P256.KeyAgreement.PrivateKey(derRepresentation: der) {
-            self.privateKey = loaded
+            self.privateKeyError = nil
         } else {
-            self.privateKey = nil
+            let resolved = Self.privateKeyFromEnvironment(
+                ProcessInfo.processInfo.environment["BELLA_BAXTER_PRIVATE_KEY"]
+            )
+            self.privateKey = resolved.key
+            self.privateKeyError = resolved.error
         }
         self.onWrappedDekReceived = onWrappedDekReceived
+    }
+
+    /// Resolves the value of `BELLA_BAXTER_PRIVATE_KEY`: absent or blank means no device key
+    /// (ephemeral, as before); anything else must load, or it is an error naming the variable.
+    static func privateKeyFromEnvironment(
+        _ value: String?
+    ) -> (key: P256.KeyAgreement.PrivateKey?, error: BellaError?) {
+        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return (nil, nil)
+        }
+        do {
+            return (try BellaClient.loadPrivateKey(pkcs8Pem: value), nil)
+        } catch {
+            return (nil, .invalidKey(
+                "BELLA_BAXTER_PRIVATE_KEY is set but is not a readable PKCS#8 P-256 private key "
+                    + "(PEM or base64 DER expected). Refusing to continue with a throwaway key instead "
+                    + "of your device key. Unset it, or re-run: bella auth setup"
+            ))
+        }
     }
 }

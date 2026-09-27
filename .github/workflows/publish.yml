@@ -15,11 +15,17 @@ on:
 jobs:
   publish:
     name: Publish bella-baxter-swift
-    runs-on: macos-latest
+    runs-on: macos-15
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v6
+
+      # The package declares swift-tools-version 6.2 (#993); macos-15's default Xcode 16.4 is Swift 6.1.
+      - name: Select a Swift 6.2+ toolchain
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app
+          swift --version
 
       - name: Extract version from tag
         id: version
