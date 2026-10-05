@@ -12,6 +12,11 @@ import OpenAPIRuntime
 /// so the generated Swift client can deserialize it normally (preserving `version`,
 /// `environmentSlug`, `lastModified`, etc.).
 ///
+/// **Fail closed (#1050):** once the key is presented, a `2xx` answer to a value-carrying read
+/// (``requiresEnvelope(method:path:)``) that is not an envelope throws ``E2EEResponseError`` with
+/// `e2ee-plaintext-response`, and an envelope that does not decrypt — malformed, tampered, or
+/// encrypted to another key — throws it with `e2ee-decryption-failed`. Neither is ever passed on.
+///
 /// **ZKE mode:** when initialised with a persistent `P256.KeyAgreement.PrivateKey`, the server
 /// can return a `X-Bella-Wrapped-Dek` header containing a Data-Encryption Key that has been
 /// wrapped with the persistent public key. The `onWrappedDekReceived` callback fires whenever
@@ -73,24 +78,37 @@ struct E2EEncryptionMiddleware: ClientMiddleware {
         let (response, responseBody) = try await next(modifiedRequest, body, baseURL)
 
         guard isSecretsGet,
-              response.status.code >= 200, response.status.code < 300,
-              let responseBody
+              response.status.code >= 200, response.status.code < 300
         else {
             return (response, responseBody)
         }
 
+        // #1050 (b) — the key was presented. On an envelope-required read the answer MUST be an envelope
+        // that decrypts to this key; anything else is refused, never handed to the decoder as secrets.
+        let path = Self.pathOnly(request.path)
+        let envelopeRequired = Self.requiresEnvelope(method: request.method, path: path)
+
         // Collect body bytes
         var data = Data()
-        for try await chunk in responseBody {
-            data.append(contentsOf: chunk)
+        if let responseBody {
+            for try await chunk in responseBody {
+                data.append(contentsOf: chunk)
+            }
         }
 
         let finalData: Data
-        do {
-            finalData = try decryptIfNeeded(data)
-        } catch {
-            await Console.error("[BellaClient] E2EE decryption failed: \(error)")
-            finalData = data
+        if let envelope = Self.envelope(in: data) {
+            do {
+                finalData = try decrypt(envelope)
+            } catch {
+                // #1050 — never the original bytes in place of a failed decryption.
+                throw E2EEResponseError(code: .decryptionFailed, path: path, underlying: error)
+            }
+        } else if envelopeRequired {
+            throw E2EEResponseError(code: .plaintextResponse, path: path, underlying: nil)
+        } else {
+            guard responseBody != nil else { return (response, nil) }
+            finalData = data // not a value-carrying read: plain JSON is the server's real answer
         }
 
         // ZKE: capture wrapped DEK header when a persistent key + callback are configured.
@@ -111,6 +129,50 @@ struct E2EEncryptionMiddleware: ClientMiddleware {
         return (response, HTTPBody(finalData))
     }
 
+    // MARK: - Envelope-required reads (apps/sdk/SDK_CONTRACT.md)
+
+    /// Whether a `2xx` answer to this request, once the key was presented, MUST be an E2EE envelope:
+    /// the `GET`s that carry secret values (SDK_CONTRACT.md, "Which Endpoints Support E2EE"). Every other
+    /// call under `/secrets` is answered in plain JSON even when the key is presented.
+    ///
+    /// `path` may be absolute or relative to the server URL; it is located by `/api/v1/projects/`.
+    static func requiresEnvelope(method: HTTPRequest.Method, path: String) -> Bool {
+        guard method == .get else { return false }
+        let normalized = path.hasPrefix("/") ? path : "/" + path
+        guard let range = normalized.range(of: "/api/v1/projects/") else { return false }
+        let segments = normalized[range.upperBound...].split(separator: "/", omittingEmptySubsequences: false)
+            .map(String.init)
+        guard segments.count >= 2, !segments[0].isEmpty else { return false }
+        let rest = Array(segments.dropFirst())
+        switch rest.count {
+        case 1:
+            return rest[0] == "secrets"                                          // listGlobalSecrets
+        case 3:
+            return rest[0] == "environments" && rest[2] == "secrets"             // getAllEnvironmentSecrets
+        case 4:
+            return rest[0] == "environments" && rest[2] == "secrets" && rest[3] == "export"
+        case 5:
+            return rest[0] == "environments" && rest[2] == "providers" && rest[4] == "secrets"
+        case 6:
+            // exportSecrets, or getSecret for any key but the `hash` route
+            return rest[0] == "environments" && rest[2] == "providers" && rest[4] == "secrets"
+                && !rest[5].isEmpty && rest[5] != "hash"
+        case 8:
+            return rest[0] == "environments" && rest[2] == "providers" && rest[4] == "secrets"
+                && !rest[5].isEmpty && rest[6] == "versions"
+                && !rest[7].isEmpty && rest[7].allSatisfy { $0.isASCII && $0.isNumber }
+        default:
+            return false
+        }
+    }
+
+    /// The request path without its query string.
+    static func pathOnly(_ path: String?) -> String {
+        guard let path else { return "" }
+        if let q = path.firstIndex(of: "?") { return String(path[..<q]) }
+        return path
+    }
+
     // MARK: - Helpers
 
     /// Returns the path component that immediately follows `keyword`, or `""` if not found.
@@ -123,14 +185,16 @@ struct E2EEncryptionMiddleware: ClientMiddleware {
 
     // MARK: - Decryption
 
-    private func decryptIfNeeded(_ data: Data) throws -> Data {
+    /// The body as an envelope (`{"encrypted": true, …}`), or nil when it is not one.
+    private static func envelope(in data: Data) -> [String: Any]? {
         guard
             let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             json["encrypted"] as? Bool == true
-        else {
-            return data // plain response — pass through as-is
-        }
+        else { return nil }
+        return json
+    }
 
+    private func decrypt(_ json: [String: Any]) throws -> Data {
         guard
             let serverPubB64 = json["serverPublicKey"] as? String,
             let nonceB64     = json["nonce"]            as? String,
@@ -172,6 +236,7 @@ struct E2EEncryptionMiddleware: ClientMiddleware {
 
 // MARK: - Errors
 
+/// The cause behind ``E2EEResponseError/underlying`` when an envelope lacks a field.
 enum E2EDecryptionError: Error, LocalizedError {
     case malformedPayload
 
@@ -182,13 +247,43 @@ enum E2EDecryptionError: Error, LocalizedError {
     }
 }
 
-// MARK: - Console helper (stderr)
+/// A secrets response that was refused because this client presented its E2EE key and the answer was
+/// not an envelope it could decrypt (#1050; apps/sdk/SDK_CONTRACT.md, "a presented key requires an
+/// envelope"). There is no plaintext fallback: an answer that should have been encrypted to this client
+/// and was not — or was encrypted to someone else, or was tampered with — is never returned as secrets.
+///
+/// ``code`` is the cross-SDK contract (the same strings in all nine SDKs). The message names the request
+/// path and the code, never the body, ciphertext or key material.
+public struct E2EEResponseError: Error, LocalizedError, CustomStringConvertible, Sendable {
+    /// The stable, cross-SDK reason for the refusal.
+    public enum Code: String, Sendable {
+        /// The key was presented, and a value-carrying read came back without an envelope.
+        case plaintextResponse = "e2ee-plaintext-response"
+        /// An envelope came back but did not decrypt: malformed, tampered, or encrypted to another key.
+        case decryptionFailed = "e2ee-decryption-failed"
+    }
 
-private enum Console {
-    static func error(_ message: String) async {
-        var stderr = FileHandle.standardError
-        if let data = (message + "\n").data(using: .utf8) {
-            stderr.write(data)
+    /// Why the response was refused.
+    public let code: Code
+    /// The request path whose response was refused (no query string).
+    public let path: String
+    /// The decryption failure behind ``Code/decryptionFailed``; nil for ``Code/plaintextResponse``.
+    public let underlying: (any Error)?
+
+    public init(code: Code, path: String, underlying: (any Error)? = nil) {
+        self.code = code
+        self.path = path
+        self.underlying = underlying
+    }
+
+    public var description: String {
+        switch code {
+        case .plaintextResponse:
+            "E2EE response expected but plaintext received for \(path); refusing it (\(code.rawValue))"
+        case .decryptionFailed:
+            "E2EE response could not be decrypted for \(path); refusing it (\(code.rawValue))"
         }
     }
+
+    public var errorDescription: String? { description }
 }

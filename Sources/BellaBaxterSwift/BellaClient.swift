@@ -297,6 +297,10 @@ public final class BellaClient: @unchecked Sendable {
     ///
     /// Project and environment are auto-discovered from the API key if not provided.
     /// The response is transparently E2EE-decrypted by `E2EEncryptionMiddleware`.
+    ///
+    /// - Throws: ``E2EEResponseError`` when the answer was not an envelope this client could decrypt —
+    ///   plaintext (`e2ee-plaintext-response`), or tampered / encrypted to another key
+    ///   (`e2ee-decryption-failed`). Such an answer is never returned as secrets (#1050).
     public func pullSecrets(
         projectRef: String? = nil,
         environmentSlug: String? = nil
@@ -310,9 +314,16 @@ public final class BellaClient: @unchecked Sendable {
         let resolvedProject = projectRef ?? ctx.projectSlug
         let resolvedEnv = environmentSlug ?? ctx.environmentSlug
 
-        let response = try await generated.getAllEnvironmentSecrets(
-            .init(path: .init(projectRef: resolvedProject, envSlug: resolvedEnv))
-        )
+        let response: Operations.getAllEnvironmentSecrets.Output
+        do {
+            response = try await generated.getAllEnvironmentSecrets(
+                .init(path: .init(projectRef: resolvedProject, envSlug: resolvedEnv))
+            )
+        } catch let error as ClientError where error.underlyingError is E2EEResponseError {
+            // #1050 — surface the refusal itself, not the runtime's wrapper around it, so a caller can
+            // match on `E2EEResponseError.code` and the printed message carries the code.
+            throw error.underlyingError
+        }
         switch response {
         case .ok(let ok):
             switch ok.body {
