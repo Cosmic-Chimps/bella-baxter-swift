@@ -162,6 +162,10 @@ public final class BellaClient: @unchecked Sendable {
     private let options: BellaClientOptions
     private let urlSession: URLSession
     private let hmacMiddleware: HmacAuthMiddleware
+    // The generated client's own transport and E2EE middleware, kept so that a read issued outside the
+    // generated client (rawGet, exportSecretsAsEnv) goes through the very same pipeline (#1162).
+    private let transport: URLSessionTransport
+    private let e2eeMiddleware: E2EEncryptionMiddleware
     private var _keyContext: KeyContext?
 
     // MARK: Init
@@ -196,6 +200,8 @@ public final class BellaClient: @unchecked Sendable {
             e2ee = E2EEncryptionMiddleware()
         }
         self.hmacMiddleware = auth
+        self.transport = transport
+        self.e2eeMiddleware = e2ee
         self.generated = Client(
             serverURL: options.baseURL,
             // #993 — the runtime default rejects the fractional seconds the API sends.
@@ -341,27 +347,117 @@ public final class BellaClient: @unchecked Sendable {
 
     /// Downloads the `.env`-formatted secrets for a specific provider.
     ///
-    /// Uses a raw URLSession request because the generated export endpoint returns a
-    /// plain-text body that the OpenAPI client cannot easily deserialize.
+    /// The read is end-to-end encrypted like every other value-carrying read (#1162): it goes through
+    /// ``rawGet(path:)``, so the client's key is presented and the answer must be an envelope that
+    /// decrypts to it. With a key presented the server answers the provider's secrets as a `{key: value}`
+    /// dict (never a file), and this method renders that dict as dotenv text itself, with the server's
+    /// own rules (`SecretsFormatter`, env format): one `KEY=value` line per secret, keys sorted (ordinally;
+    /// the server's culture-aware sort may order mixed-case keys differently), and a value containing a space, `#`, `"` or a newline wrapped in double quotes with `\` and `"`
+    /// backslash-escaped. The server's leading comment header (provider and timestamp) is not reproduced.
+    ///
+    /// - Throws: ``E2EEResponseError`` when the answer was plaintext or did not decrypt (#1050), never a
+    ///   plaintext export.
     public func exportSecretsAsEnv(
         projectRef: String,
         environmentSlug: String,
         providerSlug: String
     ) async throws -> String {
-        let path = "api/v1/projects/\(projectRef)/environments/\(environmentSlug)/providers/\(providerSlug)/secrets/export"
-        var req = URLRequest(url: options.baseURL.appendingPathComponent(path))
-        req.addBellaHmacHeaders(keyId: hmacMiddleware.keyId, signingKey: hmacMiddleware.signingKey)
-        req.setValue("text/plain, application/json", forHTTPHeaderField: "Accept")
-
-        let (data, response) = try await urlSession.data(for: req)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if code == 404 {
+        let path = "/api/v1/projects/\(Self.segment(projectRef))/environments/\(Self.segment(environmentSlug))"
+            + "/providers/\(Self.segment(providerSlug))/secrets/export"
+        let (status, data) = try await sendThroughPipeline(path: path)
+        guard status == 200 else {
+            if status == 404 {
                 throw BellaError.notFound("provider '\(providerSlug)' in '\(projectRef)/\(environmentSlug)'")
             }
-            throw BellaError.serverError(code, "exportSecrets failed")
+            throw BellaError.serverError(status, "exportSecrets failed")
         }
-        return String(data: data, encoding: .utf8) ?? ""
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw BellaError.unexpectedResponse("exportSecrets did not answer a {key: value} object")
+        }
+        var secrets: [String: String] = [:]
+        for (key, value) in object {
+            guard let string = value as? String else {
+                throw BellaError.unexpectedResponse("exportSecrets answered a non-string value for '\(key)'")
+            }
+            secrets[key] = string
+        }
+        return Self.formatDotenv(secrets)
+    }
+
+    /// GETs an API path through this client's own pipeline — HMAC signing, the E2EE presentation decision
+    /// and the envelope rule — and returns the response body: for one of the seven envelope-required reads,
+    /// the decrypted plaintext, byte for byte what the server would have sent without a key.
+    ///
+    /// Use it for reads this client has no typed method for, e.g. `getSecret`
+    /// (`api/v1/projects/{p}/environments/{e}/providers/{v}/secrets/{key}`) or `listGlobalSecrets`
+    /// (`api/v1/projects/{p}/secrets`). The generated client declares five of those reads as returning the
+    /// envelope type itself, so their decrypted bodies cannot be decoded through it; this method hands the
+    /// bytes to the caller instead.
+    ///
+    /// - Parameter path: relative to ``BellaClientOptions/baseURL`` (a leading `/` is optional), already
+    ///   percent-encoded, and may carry a query string (`…/secrets/export?format=json`).
+    /// - Returns: the body of a `2xx` answer.
+    /// - Throws: ``E2EEResponseError`` when the key was presented and the answer was not an envelope this
+    ///   client could decrypt (#1050); ``BellaError/unauthorized`` (401), ``BellaError/notFound(_:)`` (404)
+    ///   or ``BellaError/serverError(_:_:)`` for any other non-`2xx` status.
+    public func rawGet(path: String) async throws -> Data {
+        let (status, data) = try await sendThroughPipeline(path: path)
+        switch status {
+        case 200..<300: return data
+        case 401: throw BellaError.unauthorized
+        case 404: throw BellaError.notFound(Self.normalizedPath(path))
+        default: throw BellaError.serverError(status, "GET \(E2EEncryptionMiddleware.pathOnly(Self.normalizedPath(path))) failed")
+        }
+    }
+
+    /// One `GET` through the same middlewares and transport the generated client uses, so the presentation
+    /// decision and the envelope rule cannot differ between a typed call and a raw one. An
+    /// ``E2EEResponseError`` propagates as itself.
+    private func sendThroughPipeline(path: String) async throws -> (status: Int, body: Data) {
+        let request = HTTPRequest(
+            method: .get, scheme: nil, authority: nil, path: Self.normalizedPath(path),
+            headerFields: [.accept: "application/json"]
+        )
+        let operationID = "rawGet"
+        let e2ee = e2eeMiddleware
+        let transport = transport
+        let (response, body) = try await hmacMiddleware.intercept(
+            request, body: nil, baseURL: options.baseURL, operationID: operationID
+        ) { request, body, baseURL in
+            try await e2ee.intercept(request, body: body, baseURL: baseURL, operationID: operationID) {
+                request, body, baseURL in
+                try await transport.send(request, body: body, baseURL: baseURL, operationID: operationID)
+            }
+        }
+        let data: Data = if let body { try await Data(collecting: body, upTo: .max) } else { Data() }
+        return (response.status.code, data)
+    }
+
+    private static func normalizedPath(_ path: String) -> String {
+        path.hasPrefix("/") ? path : "/" + path
+    }
+
+    /// One path segment, percent-encoded.
+    private static func segment(_ value: String) -> String {
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: "/")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
+    }
+
+    /// The server's env rendering (`SecretsFormatter.FormatEnv`), without its comment header.
+    static func formatDotenv(_ secrets: [String: String]) -> String {
+        var out = ""
+        for key in secrets.keys.sorted(by: { $0.utf16.lexicographicallyPrecedes($1.utf16) }) {
+            let value = secrets[key]!
+            let needsQuoting = value.contains(" ") || value.contains("#") || value.contains("\"")
+                || value.contains("\n")
+            let safe = needsQuoting
+                ? "\"" + value.replacingOccurrences(of: "\\", with: "\\\\")
+                    .replacingOccurrences(of: "\"", with: "\\\"") + "\""
+                : value
+            out += "\(key)=\(safe)\n"
+        }
+        return out
     }
 
     /// Pulls secrets and injects them into the current process environment.

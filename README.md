@@ -90,8 +90,8 @@ let apiToken = secrets["THIRD_PARTY_TOKEN"] ?? ""
 | `getProject(ref:)` | Get a project by GUID or slug |
 | `listEnvironments(projectRef:)` | List environments in a project |
 | `pullSecrets(projectRef:environmentSlug:)` | **Primary**: all secrets merged into `[String: String]` |
-| `listSecrets(projectRef:environmentSlug:providerSlug:)` | Secrets for a specific provider |
-| `exportSecretsAsEnv(projectRef:environmentSlug:providerSlug:)` | `.env`-formatted string |
+| `exportSecretsAsEnv(projectRef:environmentSlug:providerSlug:)` | `.env`-formatted string for one provider (end-to-end encrypted, rendered locally) |
+| `rawGet(path:)` | GET any API path through the client's signing + E2EE pipeline; returns the (decrypted) body bytes — e.g. `listSecrets`, `getSecret`, `getSecretVersion`, `listGlobalSecrets` |
 | `injectIntoEnvironment(projectRef:environmentSlug:)` | Inject secrets into `ProcessInfo` (macOS/CLI) |
 
 ---

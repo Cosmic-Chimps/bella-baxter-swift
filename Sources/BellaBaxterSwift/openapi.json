@@ -347,6 +347,22 @@
               }
             }
           },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
           "503": {
             "description": "Service Unavailable",
             "content": {
@@ -617,6 +633,22 @@
               }
             }
           },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
           "503": {
             "description": "Service Unavailable",
             "content": {
@@ -708,6 +740,14 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": { }
@@ -838,6 +878,14 @@
                 "schema": { }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
           }
         }
       },
@@ -871,6 +919,14 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": { }
@@ -981,6 +1037,14 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -1055,65 +1119,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/tenants/{id}/plan": {
-      "put": {
-        "tags": [
-          "BellaBaxter.Features.Tenants.ChangeTenantPlan"
-        ],
-        "summary": "PUT_api_v1_admin_tenants_id_plan",
-        "description": "PUT_api_v1_admin_tenants_id_plan",
-        "operationId": "changeTenantPlan",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChangeTenantPlanRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChangeTenantPlanResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": { }
               }
             }
           }
@@ -1355,102 +1360,11 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found",
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": { }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tenants": {
-      "post": {
-        "tags": [
-          "BellaBaxter.Features.Tenants.CreateTenant"
-        ],
-        "summary": "POST_api_tenants",
-        "description": "POST_api_tenants",
-        "operationId": "createTenant",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Command"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreateTenantResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "BellaBaxter.Features.Tenants.ListTenants"
-        ],
-        "summary": "GET_api_tenants",
-        "description": "GET_api_tenants",
-        "operationId": "ListTenants",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ListTenantsResponse"
-                  }
-                }
               }
             }
           },
@@ -1779,46 +1693,6 @@
             "content": {
               "application/json": {
                 "schema": { }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": { }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tenants/{identifier}": {
-      "get": {
-        "tags": [
-          "BellaBaxter.Features.Tenants.GetTenant"
-        ],
-        "summary": "GET_api_tenants_identifier",
-        "description": "GET_api_tenants_identifier",
-        "operationId": "GetTenant",
-        "parameters": [
-          {
-            "name": "identifier",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetTenantResponse"
-                }
               }
             }
           },
@@ -2664,6 +2538,14 @@
                 "schema": { }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
           }
         }
       }
@@ -2687,6 +2569,14 @@
                     "$ref": "#/components/schemas/TenantAccess"
                   }
                 }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
               }
             }
           },
@@ -2731,6 +2621,14 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -2769,6 +2667,14 @@
                 "schema": {
                   "$ref": "#/components/schemas/TenantSettingsResponse"
                 }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
               }
             }
           },
@@ -3066,6 +2972,14 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
           "409": {
             "description": "Conflict",
             "content": {
@@ -3121,33 +3035,11 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found",
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": { }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/diagnostics/auth": {
-      "get": {
-        "tags": [
-          "BellaBaxter.Features.SystemEndpoints.DiagnosticsEndpoint"
-        ],
-        "summary": "GET_api_diagnostics_auth",
-        "description": "GET_api_diagnostics_auth",
-        "operationId": "getAuthDiagnostics",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthDiagnostics"
-                }
               }
             }
           },
@@ -4403,6 +4295,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TestConnectionResult"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -8019,6 +7921,14 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -8541,6 +8451,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -8704,6 +8624,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -8746,6 +8676,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SshRolesResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -8804,6 +8744,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -8848,6 +8798,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SshAuthorityResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -8900,6 +8860,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -8944,6 +8914,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SshDeployAuthorityResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -9090,6 +9070,16 @@
             "content": {
               "application/json": {
                 "schema": { }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
               }
             }
           },
@@ -11044,6 +11034,26 @@
               }
             }
           },
+          "410": {
+            "description": "Gone",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "501": {
             "description": "Not Implemented",
             "content": {
@@ -11426,6 +11436,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -11508,6 +11528,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -11550,6 +11580,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PkiCaPublicKeyResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -11620,6 +11660,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -11662,6 +11712,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PkiRolesResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -11720,6 +11780,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -11764,6 +11834,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PkiAuthorityResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -11834,6 +11914,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -11878,6 +11968,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PkiCertificatesResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -11948,6 +12048,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -11992,6 +12102,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/JwtSigningKeyRotationResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -12056,6 +12176,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PkiTidyResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -13096,8 +13226,8 @@
               }
             }
           },
-          "400": {
-            "description": "Bad Request",
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": { }
@@ -13143,8 +13273,8 @@
               }
             }
           },
-          "400": {
-            "description": "Bad Request",
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": { }
@@ -14988,6 +15118,14 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
           "500": {
             "description": "Internal Server Error",
             "content": {
@@ -15024,6 +15162,14 @@
                     "$ref": "#/components/schemas/ApiKeyResponse"
                   }
                 }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
               }
             }
           },
@@ -15262,6 +15408,14 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -15461,6 +15615,14 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": { }
@@ -16916,56 +17078,6 @@
           }
         }
       },
-      "AuthDiagnostics": {
-        "required": [
-          "hasAuthorizationHeader",
-          "isAuthenticated",
-          "tokenIssuer",
-          "tokenAudience",
-          "tokenClaims",
-          "configuredKeycloakUrl",
-          "expectedIssuer"
-        ],
-        "type": "object",
-        "properties": {
-          "hasAuthorizationHeader": {
-            "type": "boolean"
-          },
-          "isAuthenticated": {
-            "type": "boolean"
-          },
-          "tokenIssuer": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "tokenAudience": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "tokenClaims": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "configuredKeycloakUrl": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "expectedIssuer": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
       "AwsRegionResponse": {
         "required": [
           "regions"
@@ -17152,6 +17264,11 @@
           "lastUpdatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "certificatesIssued": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
           }
         }
       },
@@ -17643,37 +17760,6 @@
           }
         }
       },
-      "ChangeTenantPlanRequest": {
-        "required": [
-          "plan"
-        ],
-        "type": "object",
-        "properties": {
-          "plan": {
-            "type": "string"
-          }
-        }
-      },
-      "ChangeTenantPlanResponse": {
-        "required": [
-          "tenantId",
-          "plan",
-          "message"
-        ],
-        "type": "object",
-        "properties": {
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "plan": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
-        }
-      },
       "ClaimOperator": {
         "enum": [
           "Equals",
@@ -17697,27 +17783,6 @@
           },
           "value": {
             "type": "string"
-          }
-        }
-      },
-      "Command": {
-        "required": [
-          "name",
-          "slug"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "domain": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
         }
       },
@@ -18466,33 +18531,6 @@
           },
           "hasPassword": {
             "type": "boolean"
-          }
-        }
-      },
-      "CreateTenantResponse": {
-        "required": [
-          "tenantId",
-          "name",
-          "slug",
-          "domain"
-        ],
-        "type": "object",
-        "properties": {
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "domain": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
         }
       },
@@ -19911,47 +19949,6 @@
           }
         }
       },
-      "GetTenantResponse": {
-        "required": [
-          "tenantId",
-          "name",
-          "slug",
-          "domain",
-          "status",
-          "createdAt",
-          "updatedAt"
-        ],
-        "type": "object",
-        "properties": {
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "domain": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "status": {
-            "$ref": "#/components/schemas/TenantStatus"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
       "GlobalSecretItem": {
         "required": [
           "key",
@@ -20910,6 +20907,19 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "providerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "confirmOverwrite": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -20939,42 +20949,6 @@
             "items": {
               "$ref": "#/components/schemas/GlobalSecretItem"
             }
-          }
-        }
-      },
-      "ListTenantsResponse": {
-        "required": [
-          "tenantId",
-          "name",
-          "slug",
-          "domain",
-          "status",
-          "createdAt"
-        ],
-        "type": "object",
-        "properties": {
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "domain": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "status": {
-            "$ref": "#/components/schemas/TenantStatus"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
           }
         }
       },
@@ -21094,7 +21068,9 @@
           "secretsSkipped",
           "providersEncrypted",
           "webhooksEncrypted",
-          "notificationsEncrypted"
+          "notificationsEncrypted",
+          "projectsSkipped",
+          "notMigrated"
         ],
         "type": "object",
         "properties": {
@@ -21131,8 +21107,95 @@
           "notificationsEncrypted": {
             "type": "integer",
             "format": "int32"
+          },
+          "projectsSkipped": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notMigrated": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MigrationNotMigrated"
+            }
           }
         }
+      },
+      "MigrationLocationKind": {
+        "enum": [
+          "None",
+          "Environment",
+          "GlobalSecrets"
+        ],
+        "default": "None"
+      },
+      "MigrationNotMigrated": {
+        "required": [
+          "subject",
+          "id",
+          "name",
+          "reason",
+          "count",
+          "where"
+        ],
+        "type": "object",
+        "properties": {
+          "subject": {
+            "$ref": "#/components/schemas/MigrationSubject"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/MigrationSkipReason"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "where": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "locationKind": {
+            "$ref": "#/components/schemas/MigrationLocationKind"
+          },
+          "environmentSlug": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "providerSlug": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MigrationSkipReason": {
+        "enum": [
+          "NoKey",
+          "KeyStoreUnreadable",
+          "ProviderUnreachable",
+          "Undecryptable",
+          "WriteFailed",
+          "Unreadable"
+        ]
+      },
+      "MigrationSubject": {
+        "enum": [
+          "Project",
+          "ProviderCredential",
+          "WebhookSigningSecret",
+          "NotificationChannel"
+        ]
       },
       "ModeMeaningDto": {
         "required": [
@@ -21611,6 +21674,20 @@
             "format": "uuid"
           },
           "vaultProviderName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "issuingAuthority": {
+            "type": "string",
+            "default": "tenant"
+          },
+          "issuerStatus": {
+            "type": "string",
+            "default": "unreadable"
+          },
+          "issuerRemedy": {
             "type": [
               "null",
               "string"
@@ -24831,13 +24908,6 @@
           }
         }
       },
-      "TenantStatus": {
-        "enum": [
-          "Active",
-          "Suspended",
-          "Archived"
-        ]
-      },
       "TenantUsageResponse": {
         "required": [
           "plan",
@@ -24887,6 +24957,11 @@
           },
           "isOperatorManaged": {
             "type": "boolean"
+          },
+          "certificatesIssued": {
+            "type": "integer",
+            "format": "int64",
+            "default": 0
           }
         }
       },
@@ -25581,6 +25656,15 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "clearSensitiveKeys": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -26105,7 +26189,8 @@
           "success",
           "errorMessage",
           "durationMs",
-          "attemptedAt"
+          "attemptedAt",
+          "errorCode"
         ],
         "type": "object",
         "properties": {
@@ -26138,6 +26223,12 @@
           "attemptedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -26269,6 +26360,13 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "linkedProviderId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -26654,9 +26752,6 @@
       "name": "BellaBaxter.Features.Tenants.AcceptTenantInvite"
     },
     {
-      "name": "BellaBaxter.Features.Tenants.ChangeTenantPlan"
-    },
-    {
       "name": "BellaBaxter.Features.Tenants.ChangeTenantUserRole"
     },
     {
@@ -26667,12 +26762,6 @@
     },
     {
       "name": "BellaBaxter.Features.Tenants.CreateOwnTenant"
-    },
-    {
-      "name": "BellaBaxter.Features.Tenants.CreateTenant"
-    },
-    {
-      "name": "BellaBaxter.Features.Tenants.ListTenants"
     },
     {
       "name": "BellaBaxter.Features.Tenants.CreateTenantInvite"
@@ -26694,9 +26783,6 @@
     },
     {
       "name": "BellaBaxter.Features.Tenants.UpdateSsoConfig"
-    },
-    {
-      "name": "BellaBaxter.Features.Tenants.GetTenant"
     },
     {
       "name": "BellaBaxter.Features.Tenants.GetTenantEncryptionKey"

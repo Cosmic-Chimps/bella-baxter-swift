@@ -3,14 +3,19 @@ import Foundation
 import HTTPTypes
 import OpenAPIRuntime
 
-/// `ClientMiddleware` that transparently adds end-to-end encryption to secrets requests.
+/// `ClientMiddleware` that transparently adds end-to-end encryption to every read that carries secret values.
 ///
-/// **On outbound:** adds `X-E2E-Public-Key` to `getAllEnvironmentSecrets` requests so the server
-/// encrypts the response payload.
+/// **On outbound (#1162):** adds `X-E2E-Public-Key` to EVERY envelope-required read — the seven `GET`s
+/// ``requiresEnvelope(method:path:)`` matches (apps/sdk/SDK_CONTRACT.md, "Rule: the key is presented on
+/// every envelope-required read"): `getAllEnvironmentSecrets`, `exportEnvironmentSecrets`, `listSecrets`,
+/// `exportSecrets`, `getSecret`, `getSecretVersion` and `listGlobalSecrets`. The decision is the path's,
+/// never the operation's, so a read issued outside the generated client (``BellaClient/rawGet(path:)``,
+/// ``BellaClient/exportSecretsAsEnv(projectRef:environmentSlug:providerSlug:)``) is encrypted the same way.
+/// Nothing else is sent the key.
 ///
-/// **On inbound:** decrypts the `E2EEncryptedPayload` and passes the full plaintext JSON through
-/// so the generated Swift client can deserialize it normally (preserving `version`,
-/// `environmentSlug`, `lastModified`, etc.).
+/// **On inbound:** decrypts the `E2EEncryptedPayload` and passes the plaintext JSON through UNCHANGED —
+/// the exact body the server would have sent without a key (for `getAllEnvironmentSecrets` the full
+/// response, preserving `version`, `environmentSlug`, `lastModified`, etc.).
 ///
 /// **Fail closed (#1050):** once the key is presented, a `2xx` answer to a value-carrying read
 /// (``requiresEnvelope(method:path:)``) that is not an envelope throws ``E2EEResponseError`` with
@@ -67,26 +72,26 @@ struct E2EEncryptionMiddleware: ClientMiddleware {
         operationID: String,
         next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
     ) async throws -> (HTTPResponse, HTTPBody?) {
-        // Only intercept getAllEnvironmentSecrets (GET .../secrets)
-        let isSecretsGet = operationID == "getAllEnvironmentSecrets"
+        // #1162 — one decision, by path: the key is presented on every envelope-required read and on
+        // nothing else, whichever operation (or raw helper) issued the request.
+        let path = Self.pathOnly(request.path)
+        let presentsKey = Self.requiresEnvelope(method: request.method, path: path)
 
         var modifiedRequest = request
-        if isSecretsGet {
-            modifiedRequest.headerFields[HTTPField.Name("X-E2E-Public-Key")!] = publicKeyBase64
+        if presentsKey {
+            modifiedRequest.headerFields[Self.publicKeyHeader] = publicKeyBase64
         }
 
         let (response, responseBody) = try await next(modifiedRequest, body, baseURL)
 
-        guard isSecretsGet,
+        guard presentsKey,
               response.status.code >= 200, response.status.code < 300
         else {
             return (response, responseBody)
         }
 
-        // #1050 (b) — the key was presented. On an envelope-required read the answer MUST be an envelope
-        // that decrypts to this key; anything else is refused, never handed to the decoder as secrets.
-        let path = Self.pathOnly(request.path)
-        let envelopeRequired = Self.requiresEnvelope(method: request.method, path: path)
+        // #1050 (b) — the key was presented, and only ever on an envelope-required read, so the answer MUST
+        // be an envelope that decrypts to this key; anything else is refused, never handed on as values.
 
         // Collect body bytes
         var data = Data()
@@ -104,11 +109,8 @@ struct E2EEncryptionMiddleware: ClientMiddleware {
                 // #1050 — never the original bytes in place of a failed decryption.
                 throw E2EEResponseError(code: .decryptionFailed, path: path, underlying: error)
             }
-        } else if envelopeRequired {
-            throw E2EEResponseError(code: .plaintextResponse, path: path, underlying: nil)
         } else {
-            guard responseBody != nil else { return (response, nil) }
-            finalData = data // not a value-carrying read: plain JSON is the server's real answer
+            throw E2EEResponseError(code: .plaintextResponse, path: path, underlying: nil)
         }
 
         // ZKE: capture wrapped DEK header when a persistent key + callback are configured.
@@ -129,11 +131,16 @@ struct E2EEncryptionMiddleware: ClientMiddleware {
         return (response, HTTPBody(finalData))
     }
 
+    /// The request header that carries the client's public key.
+    static let publicKeyHeader = HTTPField.Name("X-E2E-Public-Key")!
+
     // MARK: - Envelope-required reads (apps/sdk/SDK_CONTRACT.md)
 
     /// Whether a `2xx` answer to this request, once the key was presented, MUST be an E2EE envelope:
     /// the `GET`s that carry secret values (SDK_CONTRACT.md, "Which Endpoints Support E2EE"). Every other
     /// call under `/secrets` is answered in plain JSON even when the key is presented.
+    ///
+    /// It is also the presentation decision (#1162): the key is sent on exactly these requests.
     ///
     /// `path` may be absolute or relative to the server URL; it is located by `/api/v1/projects/`.
     static func requiresEnvelope(method: HTTPRequest.Method, path: String) -> Bool {
@@ -228,8 +235,8 @@ struct E2EEncryptionMiddleware: ClientMiddleware {
         let sealedBox = try AES.GCM.SealedBox(nonce: gcmNonce, ciphertext: cipherData, tag: tagData)
         let plaintext = try AES.GCM.open(sealedBox, using: symmetricKey)
 
-        // Plaintext is the full AllEnvironmentSecretsResponse JSON — return as-is
-        // so the generated client can deserialize it directly.
+        // Plaintext is the body the server would have sent without a key (for getAllEnvironmentSecrets the
+        // full AllEnvironmentSecretsResponse) — returned as-is, never reshaped.
         return plaintext
     }
 }
