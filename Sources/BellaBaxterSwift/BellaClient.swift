@@ -340,6 +340,10 @@ public final class BellaClient: @unchecked Sendable {
             }
         case .notFound:
             throw BellaError.notFound("environment '\(resolvedProject)/\(resolvedEnv)'")
+        case .badGateway:
+            // 502: the secret store behind the environment could not be reached (declared since the
+            // spec started naming it; the generator makes every declared status a case).
+            throw BellaError.serverError(502, "getAllEnvironmentSecrets failed: the secret store is unreachable")
         case .undocumented(let statusCode, _):
             throw BellaError.serverError(statusCode, "getAllEnvironmentSecrets failed")
         }
@@ -390,9 +394,9 @@ public final class BellaClient: @unchecked Sendable {
     ///
     /// Use it for reads this client has no typed method for, e.g. `getSecret`
     /// (`api/v1/projects/{p}/environments/{e}/providers/{v}/secrets/{key}`) or `listGlobalSecrets`
-    /// (`api/v1/projects/{p}/secrets`). The generated client declares five of those reads as returning the
-    /// envelope type itself, so their decrypted bodies cannot be decoded through it; this method hands the
-    /// bytes to the caller instead.
+    /// (`api/v1/projects/{p}/secrets`). Since #1187 the generated client declares each of those reads as the
+    /// plaintext it returns, not the envelope, so a typed call decodes the decrypted body too; this method hands
+    /// the bytes to the caller for the reads this client wraps no method around.
     ///
     /// - Parameter path: relative to ``BellaClientOptions/baseURL`` (a leading `/` is optional), already
     ///   percent-encoded, and may carry a query string (`…/secrets/export?format=json`).
